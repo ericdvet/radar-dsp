@@ -26,6 +26,8 @@ import scipy.constants as const
 import matplotlib.pyplot as plt
 
 from radardsp.waveforms.waveforms import SquarePulse
+from radardsp.waveforms.tools import matched_filter
+from radardsp.tools import db2linear, AWGN
 
 
 def main():
@@ -49,7 +51,6 @@ def main():
     plt.figure()
     plt.plot(y / np.max(y), label="Received Signal")
     plt.plot(x / np.max(x), label="Transmitted Signal")
-
     
     # Matched filter
     alpha = 1
@@ -60,15 +61,7 @@ def main():
     # Matched filterd
     y_mf, _ = matched_filter(waveform = x, y = y)
     
-    # plt.figure()
-    # plt.plot(y_mf)
-    # plt.show()
-    
-    # plt.figure()
-    # plt.plot(np.abs(y_mf) / np.max(np.abs(y_mf)))
-    # plt.plot(np.abs(y) / np.max(np.abs(y)))
-    # plt.show()
-    
+    # Computing the time of flight, and converting it to meters.
     peak_idx = np.argmax(np.abs(y_mf))
     tof = (peak_idx * dT)
     R_o = 0.5 * const.c * tof
@@ -77,86 +70,9 @@ def main():
     plt.legend()
     plt.show()
     
-    print(f"Estimated distance = {R_o:.0f}.")
-    
-def matched_filter(waveform : np.ndarray, y : np.ndarray, alpha : float = 1):
-    """
-    Creates a matched filter for waveform and applies it to signal.
+    print(f"Estimated distance = {R_o:.0f}.")    
 
-    Parameters
-    ----------
-    waveform : np.ndarray
-        Complex waveform (carrier).
-    y : np.ndarray
-        Signal ti apply matched filter to.
-    alpha : float, optional
-        Gain of matched filter. Defaulted to 0 since it has no impact on the
-        SNR.
-
-    Returns
-    -------
-    y_mf : TYPE
-        DESCRIPTION.
-    h : TYPE
-        DESCRIPTION.
-
-    """
-    
-    h = alpha * np.conj(waveform[::-1])
-
-    
-    y_mf = np.convolve(y, h, mode = "full")
-    grd = len(waveform) - 1 # Group delay to fix the convolution offset
-    y_mf = y_mf[grd:]
-    
-    return y_mf, h
-    
-
-def AWGN(y : np.ndarray, noise_percent : float):
-    """
-    Add white gaussian noise to input vector.
-
-    Parameters
-    ----------
-    y : np.ndarray
-        Signal to add noise to.
-    noise_percent : float
-        Percent of signal power noise's variance should be at.
-
-    Returns
-    -------
-    y : float
-        Noisy signal.
-
-    """
-    signal_power = np.mean(np.abs(y)**2)
-    noise = (np.random.normal(0, signal_power*noise_percent, len(y)) + 
-             1j * np.random.normal(0, signal_power*noise_percent, len(y)))
-    y = y + noise
-    return y
-    
-
-
-
-def db2linear(dB_unit: float):
-    """
-    Convert input from dB to linear units.
-
-    Parameters
-    ----------
-    dB_unit : float
-        Unit to be converted to linear.
-
-    Returns
-    -------
-    float
-        Unit in linear.
-
-    """
-
-    return 10**(dB_unit / 10)
-
-
+# TODO: Find a spot for this.
 def radar_range_simple_point_target(P_t: float, G: float, wavelength: float,
                                     RCS: float, R: float,
                                     L_system: float = 1,
