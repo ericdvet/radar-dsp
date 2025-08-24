@@ -30,53 +30,169 @@ def main():
 
     P_t = 30
     G = 44.14  # ~26000
-    f = 10e9
+    f = 10e6
     wavelength = const.c / f
-    RCS = 100
+    RCS = 1000
     R = 10000
 
     # P_r = radar_range_simple_point_target(P_t, G, wavelength, RCS, R)
     # print(f"P_r = {P_r:.4}")
 
-    n = 10000
+    n = 1000
 
-    tau = 1e-6
-    times = np.linspace(-tau*10, tau*10, n)
+    tau = 1e-4
+    times = np.linspace(-tau*5, tau*5, n)
+    dT = times[1] - times[0]
     
-    x = square_pulse(n = n, tau = tau, times = times, f = f, 
-                     t = times - 2*R/const.c)
-
-    plt.plot(times, np.real(x))
-    # plt.plot(times, np.imag(x))
-    plt.show()
-
-
-def square_pulse(n: int, tau: float, times : np.ndarray, f: float, 
-                 t: np.ndarray = None):
+    square_pulse = SquarePulse(n = n, tau = tau, f = f)
+    x = square_pulse.waveform(times)
+    y = square_pulse.waveform(times - 2*R/const.c)
     
-    if t is None:       # If t is None, assume no delay
-        t = times
+    plt.figure()
+    plt.plot(x)
+    plt.plot(y)
     
-
-    # Square pulse amplitude modulation 
-    a = np.zeros(n)
-    for i, t_i in enumerate(times):
-        if (-tau/2 <= t_i and t_i <= tau/2):
-            a[i] = 1 / np.sqrt(tau)
-
-    # Square pulse phase and frequency modulation
-    theta = 0
-
-    omega = 2 * np.pi * f   # Convert frequency in Hz to radians
+    y = AWGN(y = y, noise_percent = 0.1)
     
-    # Forming x(t) 
-    x = a * np.exp(1j*(omega*t + theta))
+    # plt.figure()
+    # plt.plot(y)
+    # plt.plot(y_og)
     
-    return x
+    # Matched filter
+    alpha = 1
+    h = alpha * np.conj(x[::-1])    # Because the matched filter is the time
+                                    # reversed conjugate of the complex 
+                                    # waveform.
+    
+    # Matched filterd
+    y_mf = np.convolve(y, h, mode = "full")
+    
+    # plt.figure()
+    # plt.plot(y_mf)
+    # plt.show()
+    
+    # plt.figure()
+    # plt.plot(np.abs(y_mf) / np.max(np.abs(y_mf)))
+    # plt.plot(np.abs(y) / np.max(np.abs(y)))
+    # plt.show()
+    
+    grd = len(x) - 1 # Oppenheim's group delay to fix the convolution offset
+    tof = ((np.argmax(np.abs(y_mf)) - grd) * dT)
+    R_o = 0.5 * const.c * tof
+    
+    print(R_o)
+
+def AWGN(y : np.ndarray, noise_percent : float):
+    """
+    Add white gaussian noise to input vector.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Signal to add noise to.
+    noise_percent : float
+        Percent of signal power noise's variance should be at.
+
+    Returns
+    -------
+    y : float
+        Noisy signal.
+
+    """
+    signal_power = np.mean(np.abs(y)**2)
+    noise = (np.random.normal(0, signal_power*noise_percent, len(y)) + 
+             1j * np.random.normal(0, signal_power*noise_percent, len(y)))
+    y = y + noise
+    return y
+    
+class SquarePulse:
+    """
+    Square Pulse waveform class.
+    """
+    
+    def __init__(self, n : int, tau : float, f : float):
+        """
+
+        Parameters
+        ----------
+        n : int
+            Number of samples.
+        tau : float
+            Pulse duration.
+        f : float
+            Carrier frequency.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.n = n
+        self.tau = tau
+        self.f = f
+        
+    def waveform(self, t: np.ndarray):
+        """
+
+        Parameters
+        ----------
+        t : np.ndarray
+            Time array.
+
+        Returns
+        -------
+        x : np.ndarray
+            Square pulse waveform.
+
+        """
+        omega = 2 * np.pi * self.f   # Convert frequency in Hz to radians
+        x = self.a(t) * np.exp(1j*(omega*t + self.theta(t)))
+        
+        return x
+        
+    def a(self, t : np.ndarray):
+        """
+
+        Parameters
+        ----------
+        t : np.ndarray
+            Time array.
+
+        Returns
+        -------
+        a : np.ndarray
+            Amplitude modification for square pulse waveform.
+
+        """
+        
+        a = np.zeros(self.n)
+        for i, t_i in enumerate(t):
+            if (-self.tau/2 <= t_i and t_i <= self.tau/2):
+                a[i] = 1 / np.sqrt(self.tau)
+                
+        return a
+                
+    def theta(self, t : np.ndarray):
+        """
+
+        Parameters
+        ----------
+        t : np.ndarray
+            DESCRIPTION.
+
+        Returns
+        -------
+        float
+            Phase of frequency modification for square pulse waveform.
+
+        """
+        return np.zeros(self.n)
 
 
 def db2linear(dB_unit: float):
     """
+    Convert input from dB to linear units.
 
     Parameters
     ----------
@@ -98,6 +214,8 @@ def radar_range_simple_point_target(P_t: float, G: float, wavelength: float,
                                     L_system: float = 1,
                                     L_atmospheric: float = 1):
     """
+    Compute the received power for a simple point target using the radar range
+    equation.
 
     Parameters
     ----------
