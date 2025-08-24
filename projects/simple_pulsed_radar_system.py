@@ -17,46 +17,39 @@ Concepts used: signal models, time delay, range equation.
 @author: ericdvet
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import numpy as np
 import scipy.constants as const
 import matplotlib.pyplot as plt
 
+from radardsp.waveforms.waveforms import SquarePulse
+
 
 def main():
 
-    plt.close('all')
+    f = 10e6        # Carrier frequency
+    R = 12000       # Distance to target
+    n = 1000        # Number of samples
 
-    # Radar Range equation
-
-    P_t = 30
-    G = 44.14  # ~26000
-    f = 10e6
-    wavelength = const.c / f
-    RCS = 1000
-    R = 10000
-
-    # P_r = radar_range_simple_point_target(P_t, G, wavelength, RCS, R)
-    # print(f"P_r = {P_r:.4}")
-
-    n = 1000
-
-    tau = 1e-4
-    times = np.linspace(-tau*5, tau*5, n)
-    dT = times[1] - times[0]
+    tau = 1e-4                              # Pulse length 
+    times = np.linspace(-tau*5, tau*5, n)   # Time vector
+    dT = times[1] - times[0]                # Sampling period
     
     square_pulse = SquarePulse(n = n, tau = tau, f = f)
-    x = square_pulse.waveform(times)
-    y = square_pulse.waveform(times - 2*R/const.c)
+    x = square_pulse.waveform(times)                    # Transmitted waveform
+    y = square_pulse.waveform(times - 2*R/const.c)      # Received waveform
+                                                        # of 2*R/c delay.
+    
+    y = AWGN(y = y, noise_percent = 0.1)    # Adding gaussian noise to received
+                                            # waveform
     
     plt.figure()
-    plt.plot(x)
-    plt.plot(y)
-    
-    y = AWGN(y = y, noise_percent = 0.1)
-    
-    # plt.figure()
-    # plt.plot(y)
-    # plt.plot(y_og)
+    plt.plot(y / np.max(y), label="Received Signal")
+    plt.plot(x / np.max(x), label="Transmitted Signal")
+
     
     # Matched filter
     alpha = 1
@@ -65,7 +58,7 @@ def main():
                                     # waveform.
     
     # Matched filterd
-    y_mf = np.convolve(y, h, mode = "full")
+    y_mf, _ = matched_filter(waveform = x, y = y)
     
     # plt.figure()
     # plt.plot(y_mf)
@@ -76,11 +69,48 @@ def main():
     # plt.plot(np.abs(y) / np.max(np.abs(y)))
     # plt.show()
     
-    grd = len(x) - 1 # Oppenheim's group delay to fix the convolution offset
-    tof = ((np.argmax(np.abs(y_mf)) - grd) * dT)
+    peak_idx = np.argmax(np.abs(y_mf))
+    tof = (peak_idx * dT)
     R_o = 0.5 * const.c * tof
     
-    print(R_o)
+    plt.plot(np.abs(y_mf) / np.max(np.abs(y_mf)), label="Received Signal (after matched filter)")
+    plt.legend()
+    plt.show()
+    
+    print(f"Estimated distance = {R_o:.0f}.")
+    
+def matched_filter(waveform : np.ndarray, y : np.ndarray, alpha : float = 1):
+    """
+    Creates a matched filter for waveform and applies it to signal.
+
+    Parameters
+    ----------
+    waveform : np.ndarray
+        Complex waveform (carrier).
+    y : np.ndarray
+        Signal ti apply matched filter to.
+    alpha : float, optional
+        Gain of matched filter. Defaulted to 0 since it has no impact on the
+        SNR.
+
+    Returns
+    -------
+    y_mf : TYPE
+        DESCRIPTION.
+    h : TYPE
+        DESCRIPTION.
+
+    """
+    
+    h = alpha * np.conj(waveform[::-1])
+
+    
+    y_mf = np.convolve(y, h, mode = "full")
+    grd = len(waveform) - 1 # Group delay to fix the convolution offset
+    y_mf = y_mf[grd:]
+    
+    return y_mf, h
+    
 
 def AWGN(y : np.ndarray, noise_percent : float):
     """
@@ -105,89 +135,7 @@ def AWGN(y : np.ndarray, noise_percent : float):
     y = y + noise
     return y
     
-class SquarePulse:
-    """
-    Square Pulse waveform class.
-    """
-    
-    def __init__(self, n : int, tau : float, f : float):
-        """
 
-        Parameters
-        ----------
-        n : int
-            Number of samples.
-        tau : float
-            Pulse duration.
-        f : float
-            Carrier frequency.
-
-        Returns
-        -------
-        None.
-
-        """
-        
-        self.n = n
-        self.tau = tau
-        self.f = f
-        
-    def waveform(self, t: np.ndarray):
-        """
-
-        Parameters
-        ----------
-        t : np.ndarray
-            Time array.
-
-        Returns
-        -------
-        x : np.ndarray
-            Square pulse waveform.
-
-        """
-        omega = 2 * np.pi * self.f   # Convert frequency in Hz to radians
-        x = self.a(t) * np.exp(1j*(omega*t + self.theta(t)))
-        
-        return x
-        
-    def a(self, t : np.ndarray):
-        """
-
-        Parameters
-        ----------
-        t : np.ndarray
-            Time array.
-
-        Returns
-        -------
-        a : np.ndarray
-            Amplitude modification for square pulse waveform.
-
-        """
-        
-        a = np.zeros(self.n)
-        for i, t_i in enumerate(t):
-            if (-self.tau/2 <= t_i and t_i <= self.tau/2):
-                a[i] = 1 / np.sqrt(self.tau)
-                
-        return a
-                
-    def theta(self, t : np.ndarray):
-        """
-
-        Parameters
-        ----------
-        t : np.ndarray
-            DESCRIPTION.
-
-        Returns
-        -------
-        float
-            Phase of frequency modification for square pulse waveform.
-
-        """
-        return np.zeros(self.n)
 
 
 def db2linear(dB_unit: float):
