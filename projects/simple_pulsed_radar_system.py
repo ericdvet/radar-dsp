@@ -32,9 +32,9 @@ from radardsp.tools import db2linear, AWGN
 
 def main():
 
-    f = 10e6        # Carrier frequency
+    f = 2e9        # Carrier frequency
     R = 12000       # Distance to target
-    n = 1000        # Number of samples
+    n = 10000        # Number of samples
 
     tau = 1e-4                              # Pulse length 
     times = np.linspace(-tau*5, tau*5, n)   # Time vector
