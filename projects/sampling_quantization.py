@@ -64,6 +64,9 @@ def main():
     plt.legend()
     plt.show()
     
+    # I'm going to stop at simulating different sampling frequencies because 
+    # exploring quantization doesn't seem worthwhile. The relationship 
+    # between quantization error and information loss seems quite apparent.
 
 if __name__ == "__main__":
     main()
