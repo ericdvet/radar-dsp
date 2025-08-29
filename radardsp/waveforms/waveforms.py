@@ -8,9 +8,9 @@ Created on Sun Aug 24 16:52:30 2025
 import numpy as np
 import scipy.constants as const
 
-class SquarePulse:
+class SimplePulse:
     """
-    Square Pulse waveform class.
+    Simple Pulse waveform class.
     """
     
     def __init__(self, n : int, tau : float, f : float):
