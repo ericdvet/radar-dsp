@@ -24,7 +24,7 @@ import scipy.constants as const
 import matplotlib.pyplot as plt
 import scipy.fft as fft
 
-from radardsp.waveforms.waveforms import SquarePulse
+from radardsp.waveforms.waveforms import SimplePulse
 from radardsp.waveforms.tools import matched_filter
 from radardsp.tools import db2linear, AWGN
 
@@ -50,7 +50,7 @@ def main():
         n = len(times)
         dT = times[1] - times[0]                # Sampling period
         
-        square_pulse = SquarePulse(n = n, tau = tau, f = f)
+        square_pulse = SimplePulse(n = n, tau = tau, f = f)
         x = square_pulse.waveform(times)                    # Transmitted waveform
         y = square_pulse.waveform(times - 2*R/const.c)      # Received waveform
                                                             # of 2*R/c delay

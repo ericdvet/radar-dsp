@@ -5,7 +5,12 @@ Created on Sun Aug 24 16:56:51 2025
 @author: ericdvet
 """
 
+import os
+import sys
+
+
 import numpy as np
+
 
 def AWGN(y : np.ndarray, noise_percent : float):
     """
@@ -47,3 +52,32 @@ def db2linear(dB_unit: float):
     """
 
     return 10**(dB_unit / 10)
+
+def shift_signal(x : np.ndarray, shift : int):
+    """
+    Shift a signal. Unlike a normal shift that could be accomplished with
+    something like numpy.roll(), this ensures that the shift is 
+    pre and post logged with zeros.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Signal to be shifted.
+    shift : int
+        Amount to be shifted.
+
+    Returns
+    -------
+    x_shifted : np.ndarray
+        Shifted signal.
+
+    """
+    N = len(x)
+    x_shifted = np.zeros(N, dtype=complex)
+    if shift > 0:
+        x_shifted[shift:] = (x[:N-shift])
+    elif shift < 0:
+        x_shifted[:N+shift] = (x[-shift:])
+    else:
+        x_shifted = (x)
+    return x_shifted
